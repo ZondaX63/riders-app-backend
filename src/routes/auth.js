@@ -20,7 +20,7 @@ const generateToken = (userId) => {
 // Configure multer for file upload
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, '../uploads/profile-pictures');
+    const uploadDir = path.join(process.cwd(), 'uploads/profile-pictures');
     // Create directory if it doesn't exist
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
@@ -340,6 +340,65 @@ router.post('/logout', auth, async (req, res) => {
       error: {
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Error logging out'
+      }
+    });
+  }
+});
+
+// Update profile
+router.put('/profile', auth, async (req, res) => {
+  try {
+    const { fullName, bio, motorcycleInfo } = req.body;
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found'
+        }
+      });
+    }
+
+    // Update user fields
+    if (fullName) user.fullName = fullName;
+    if (bio !== undefined) user.bio = bio;
+    if (motorcycleInfo) {
+      user.motorcycleInfo = {
+        brand: motorcycleInfo.brand || user.motorcycleInfo?.brand || '',
+        model: motorcycleInfo.model || user.motorcycleInfo?.model || '',
+        year: motorcycleInfo.year || user.motorcycleInfo?.year || 0
+      };
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          fullName: user.fullName,
+          bio: user.bio,
+          profilePicture: user.profilePicture,
+          motorcycleInfo: user.motorcycleInfo,
+          followers: user.followers,
+          following: user.following,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to update profile'
       }
     });
   }

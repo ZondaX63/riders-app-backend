@@ -35,9 +35,18 @@ const userSchema = new mongoose.Schema({
     default: ''
   },
   motorcycleInfo: {
-    brand: String,
-    model: String,
-    year: Number
+    brand: {
+      type: String,
+      default: ''
+    },
+    model: {
+      type: String,
+      default: ''
+    },
+    year: {
+      type: Number,
+      default: 0
+    }
   },
   followers: [{
     type: mongoose.Schema.Types.ObjectId,
