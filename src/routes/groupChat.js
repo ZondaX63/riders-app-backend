@@ -307,4 +307,136 @@ router.get('/:id/messages', auth, async (req, res) => {
   }
 });
 
+// Attach route to group chat
+router.patch('/:id/route', auth, async (req, res) => {
+  try {
+    const { routeId } = req.body;
+    const groupChat = await GroupChat.findOne({
+      _id: req.params.id,
+      'members.user': req.user._id
+    });
+
+    if (!groupChat) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Group chat not found or you are not a member'
+        }
+      });
+    }
+
+    // Check if user is admin or creator
+    const member = groupChat.members.find(m => m.user.toString() === req.user._id.toString());
+    if (member.role !== 'admin' && groupChat.creator.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Only admins can attach routes'
+        }
+      });
+    }
+
+    groupChat.route = routeId || null;
+    await groupChat.save();
+
+    await groupChat.populate('route');
+
+    res.json({
+      success: true,
+      data: groupChat
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: error.message
+      }
+    });
+  }
+});
+
+// Update ride status
+router.patch('/:id/ride-status', auth, async (req, res) => {
+  try {
+    const { rideStatus, rideStartTime, rideEndTime } = req.body;
+    const groupChat = await GroupChat.findOne({
+      _id: req.params.id,
+      'members.user': req.user._id
+    });
+
+    if (!groupChat) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Group chat not found or you are not a member'
+        }
+      });
+    }
+
+    // Check if user is admin or creator
+    const member = groupChat.members.find(m => m.user.toString() === req.user._id.toString());
+    if (member.role !== 'admin' && groupChat.creator.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Only admins can update ride status'
+        }
+      });
+    }
+
+    if (rideStatus) groupChat.rideStatus = rideStatus;
+    if (rideStartTime) groupChat.rideStartTime = rideStartTime;
+    if (rideEndTime) groupChat.rideEndTime = rideEndTime;
+
+    await groupChat.save();
+
+    res.json({
+      success: true,
+      data: groupChat
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: error.message
+      }
+    });
+  }
+});
+
+// Get active group rides
+router.get('/rides/active', auth, async (req, res) => {
+  try {
+    const activeRides = await GroupChat.find({
+      rideStatus: 'active',
+      'members.user': req.user._id
+    })
+      .populate('creator', 'username fullName profilePicture')
+      .populate('members.user', 'username fullName profilePicture')
+      .populate('route');
+
+    res.json({
+      success: true,
+      data: {
+        rides: activeRides,
+        total: activeRides.length
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: error.message
+      }
+    });
+  }
+});
+
 module.exports = router; 

@@ -12,22 +12,24 @@ const Route = require('../models/Route');
 router.get('/search', auth, async (req, res) => {
   try {
     const { q } = req.query;
-    if (!q) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'MISSING_QUERY',
-          message: 'Search query is required'
-        }
-      });
+    
+    let users;
+    if (!q || q.trim() === '') {
+      // If no query, return all users (excluding current user)
+      users = await User.find({ _id: { $ne: req.user._id } })
+        .select('-password')
+        .limit(100)
+        .sort({ createdAt: -1 });
+    } else {
+      // Search by username or fullName
+      users = await User.find({
+        _id: { $ne: req.user._id },
+        $or: [
+          { username: { $regex: q, $options: 'i' } },
+          { fullName: { $regex: q, $options: 'i' } }
+        ]
+      }).select('-password');
     }
-
-    const users = await User.find({
-      $or: [
-        { username: { $regex: q, $options: 'i' } },
-        { fullName: { $regex: q, $options: 'i' } }
-      ]
-    }).select('-password');
 
     res.json({
       success: true,
@@ -37,6 +39,121 @@ router.get('/search', auth, async (req, res) => {
       }
     });
   } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Internal server error'
+      }
+    });
+  }
+});
+
+// Get current user profile (me)
+router.get('/me', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found'
+        }
+      });
+    }
+    res.json({
+      success: true,
+      data: {
+        user
+      }
+    });
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Internal server error'
+      }
+    });
+  }
+});
+
+// Update current user profile (me)
+router.put('/me', auth, async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: req.body },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found'
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        user
+      }
+    });
+  } catch (error) {
+    console.error('Error updating current user:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Internal server error'
+      }
+    });
+  }
+});
+
+// Upload current user profile picture (me)
+router.put('/me/profile-picture', auth, upload.single('profilePicture'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'NO_FILE',
+          message: 'No file uploaded'
+        }
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { profilePicture: req.file.path } },
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found'
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        user
+      }
+    });
+  } catch (error) {
+    console.error('Error uploading profile picture:', error);
     res.status(500).json({
       success: false,
       error: {
@@ -345,6 +462,58 @@ router.get('/:userId/routes', auth, async (req, res) => {
       error: {
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Error fetching user routes'
+      }
+    });
+  }
+});
+
+// Update user status
+router.patch('/me/status', [
+  auth,
+  body('message').optional().isIn(['', 'Mola Verdim', 'Sürüşe Hazırım', 'Yardıma İhtiyacım Var', 'Kahve Arıyorum']).withMessage('Invalid status message'),
+  body('customText').optional().isString().isLength({ max: 100 }).withMessage('Custom text must be under 100 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid input data',
+          details: errors.array()
+        }
+      });
+    }
+
+    const updateData = {
+      'status.updatedAt': new Date()
+    };
+
+    if (req.body.message !== undefined) {
+      updateData['status.message'] = req.body.message;
+    }
+    if (req.body.customText !== undefined) {
+      updateData['status.customText'] = req.body.customText;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      updateData,
+      { new: true }
+    ).select('-password');
+
+    res.json({
+      success: true,
+      data: { user }
+    });
+  } catch (error) {
+    console.error('Update status error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to update status'
       }
     });
   }

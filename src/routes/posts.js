@@ -6,12 +6,27 @@ const { upload } = require('../middleware/upload');
 const Post = require('../models/Post');
 const Notification = require('../models/Notification');
 const mongoose = require('mongoose');
+const path = require('path');
+
+function normalizeImagePath(p) {
+  if (!p) return p;
+  let s = p.replace(/\\/g, '/');
+  const lower = s.toLowerCase();
+  const idx = lower.lastIndexOf('/uploads/');
+  if (idx !== -1) {
+    s = s.substring(idx + 1); // drops leading '/'
+  }
+  if (!s.startsWith('uploads/')) {
+    s = 'uploads/' + s.replace(/^\/+/, '');
+  }
+  return s;
+}
 
 // Create post
 router.post('/', [
   auth,
   upload.array('images', 10),
-  body('description').trim().notEmpty().withMessage('Description is required'),
+  body('description').optional().trim(),
   body('location').optional().custom((value) => {
     try {
       if (typeof value === 'string') {
@@ -34,6 +49,18 @@ router.post('/', [
         }
       });
     }
+    
+    // Check if at least description or images exist
+    if ((!req.body.description || req.body.description.trim() === '') && (!req.files || req.files.length === 0)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Post must contain either description or images'
+        }
+      });
+    }
+    
     next();
   }
 ], async (req, res) => {
@@ -58,12 +85,15 @@ router.post('/', [
     const post = new Post({
       user: req.user._id,
       description,
-      images: req.files ? req.files.map(file => file.path) : [],
+      images: req.files ? req.files.map(file => normalizeImagePath(path.posix.join('uploads', file.filename || path.basename(file.path)))) : [],
       location: parsedLocation
     });
 
     await post.save();
     await post.populate('user', 'username fullName profilePicture');
+
+    // Ensure normalized images in response
+    post.images = (post.images || []).map(normalizeImagePath);
 
     res.status(201).json({
       success: true,
@@ -102,6 +132,11 @@ router.get('/', auth, async (req, res) => {
       user: { $in: [...req.user.following, req.user._id] }
     });
 
+    // Normalize image paths for response
+    posts.forEach(p => {
+      p.images = (p.images || []).map(normalizeImagePath);
+    });
+
     res.json({
       success: true,
       data: { posts, total }
@@ -137,6 +172,9 @@ router.get('/:id', auth, async (req, res) => {
         }
       });
     }
+
+    // Normalize image paths for response
+    post.images = (post.images || []).map(normalizeImagePath);
 
     res.json({
       success: true,

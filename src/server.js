@@ -1,6 +1,8 @@
 require('dotenv').config();
+const http = require('http');
 const mongoose = require('mongoose');
 const app = require('./app');
+const { initializeSocket } = require('./socket');
 
 const PORT = process.env.PORT || 5000;
 
@@ -30,11 +32,21 @@ function handleUncaughtException(err) {
 
 // Connect to MongoDB and start server
 function startServer() {
-  mongoose.connect(process.env.MONGODB_URI)
+  // Make sure MONGODB_URI is provided
+  const mongoUri = process.env.MONGODB_URI;
+  if (!mongoUri) {
+    console.error('Missing MONGODB_URI environment variable. Please set it before starting the server.');
+    console.error('You can create a backend/.env file or set it in your environment. Example in backend/.env.example');
+    // Fail fast in development so the developer notices the missing config
+    process.exit(1);
+  }
+
+  mongoose.connect(mongoUri)
     .then(() => {
       console.log('Connected to MongoDB');
-      // Start server
-      app.listen(PORT, () => {
+      const server = http.createServer(app);
+      initializeSocket(server);
+      server.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
       });
     })

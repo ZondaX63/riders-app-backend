@@ -1,14 +1,29 @@
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 // Configure storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/');
+    // Ensure absolute path and that the directory exists
+    const uploadDir = path.join(process.cwd(), 'uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    let ext = path.extname(file.originalname || '') || '';
+    // Fallback extension based on mimetype if missing
+    if (!ext) {
+      if (file.mimetype && file.mimetype.startsWith('image/')) {
+        ext = '.jpg';
+      } else if (file.mimetype && file.mimetype.startsWith('video/')) {
+        ext = '.mp4';
+      }
+    }
+    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
   }
 });
 

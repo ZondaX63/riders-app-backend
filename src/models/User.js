@@ -48,6 +48,22 @@ const userSchema = new mongoose.Schema({
       default: 0
     }
   },
+  status: {
+    message: {
+      type: String,
+      enum: ['', 'Mola Verdim', 'Sürüşe Hazırım', 'Yardıma İhtiyacım Var', 'Kahve Arıyorum'],
+      default: ''
+    },
+    customText: {
+      type: String,
+      maxlength: 100,
+      default: ''
+    },
+    updatedAt: {
+      type: Date,
+      default: null
+    }
+  },
   followers: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

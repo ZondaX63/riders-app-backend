@@ -59,6 +59,24 @@ const groupChatSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  route: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Route',
+    default: null
+  },
+  rideStatus: {
+    type: String,
+    enum: ['planned', 'active', 'completed', 'cancelled'],
+    default: 'planned'
+  },
+  rideStartTime: {
+    type: Date,
+    default: null
+  },
+  rideEndTime: {
+    type: Date,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -68,6 +86,7 @@ const groupChatSchema = new mongoose.Schema({
 // Indexes
 groupChatSchema.index({ name: 'text', description: 'text' });
 groupChatSchema.index({ 'members.user': 1 });
+groupChatSchema.index({ rideStatus: 1 });
 
 const GroupChat = mongoose.model('GroupChat', groupChatSchema);
 

@@ -10,8 +10,9 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const postRoutes = require('./routes/posts');
 const chatRoutes = require('./routes/chat');
-const { setupSocket } = require('./socket');
-
+const locationRoutes = require('./routes/locations');
+const mapPinRoutes = require('./routes/mapPins');
+const notificationRoutes = require('./routes/notifications');
 const app = express();
 
 // CORS middleware
@@ -98,6 +99,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/chats', chatRoutes);
+app.use('/api/locations', locationRoutes);
+app.use('/api/map-pins', mapPinRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Test route for error handling
 app.get('/test-error', (req, res, next) => {
