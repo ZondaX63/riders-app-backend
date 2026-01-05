@@ -348,10 +348,11 @@ router.post('/:id/like', auth, async (req, res) => {
     // Create notification for post like
     if (post.user.toString() !== req.user._id.toString()) {
       await Notification.create({
-        type: 'LIKE',
+        type: 'like',
         user: post.user,
         fromUser: req.user._id,
-        post: post._id
+        content: 'Your post was liked',
+        relatedPost: post._id
       });
     }
 
@@ -425,6 +426,55 @@ router.delete('/:id/like', auth, async (req, res) => {
   }
 });
 
+// Get comments for a post
+router.get('/:id/comments', auth, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id)
+      .populate({ path: 'comments.user', select: 'username fullName profilePicture' });
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'POST_NOT_FOUND',
+          message: 'Post not found'
+        }
+      });
+    }
+
+    // Ensure comments array exists
+    const comments = (post.comments || []).map(c => {
+      // If mongoose subdocument, convert to plain object for consistent JSON
+      const obj = typeof c.toObject === 'function' ? c.toObject() : c;
+      return obj;
+    });
+
+    res.json({
+      success: true,
+      data: { comments }
+    });
+  } catch (error) {
+    console.error('Get comments error:', error);
+    if (error.name === 'CastError') {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'POST_NOT_FOUND',
+          message: 'Post not found'
+        }
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Error fetching comments'
+      }
+    });
+  }
+});
+
 // Add comment
 router.post('/:id/comments', auth, async (req, res) => {
   try {
@@ -464,10 +514,11 @@ router.post('/:id/comments', auth, async (req, res) => {
     // Create notification for comment
     if (post.user.toString() !== req.user._id.toString()) {
       await Notification.create({
-        type: 'COMMENT',
+        type: 'comment',
         user: post.user,
         fromUser: req.user._id,
-        post: post._id
+        content: 'New comment on your post',
+        relatedPost: post._id
       });
     }
 
