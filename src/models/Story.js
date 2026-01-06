@@ -28,16 +28,22 @@ const storySchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  expiresAt: {
+    type: Date,
+    required: true
   }
 });
 
-// Add virtual for expiresAt
-storySchema.virtual('expiresAt').get(function() {
-  return new Date(this.createdAt.getTime() + this.duration * 60 * 60 * 1000);
+// Calculate expiresAt before saving
+storySchema.pre('validate', function (next) {
+  if (this.isNew || this.isModified('duration')) {
+    if (!this.createdAt) {
+      this.createdAt = new Date();
+    }
+    this.expiresAt = new Date(this.createdAt.getTime() + this.duration * 60 * 60 * 1000);
+  }
+  next();
 });
 
-// Ensure virtuals are included in JSON
-storySchema.set('toJSON', { virtuals: true });
-storySchema.set('toObject', { virtuals: true });
-
-module.exports = mongoose.model('Story', storySchema); 
+module.exports = mongoose.model('Story', storySchema);

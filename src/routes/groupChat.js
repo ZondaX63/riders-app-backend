@@ -160,6 +160,69 @@ router.post('/:id/members', auth, async (req, res) => {
   }
 });
 
+// Remove a member from the group chat
+router.delete('/:id/members/:userId', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const groupChat = await GroupChat.findById(req.params.id);
+
+    if (!groupChat) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Group chat not found'
+        }
+      });
+    }
+
+    // Check if requester is admin
+    const isAdmin = groupChat.members.some(
+      member => member.user.toString() === req.user._id.toString() && member.role === 'admin'
+    );
+
+    // Allow user to leave (remove themselves) OR admin to remove others
+    if (!isAdmin && req.user._id.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Only admins can remove members'
+        }
+      });
+    }
+
+    // Cannot remove the creator (if we consider first admin as creator or check creator field)
+    if (groupChat.creator.toString() === userId) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Cannot remove the group creator'
+        }
+      });
+    }
+
+    groupChat.members = groupChat.members.filter(
+      member => member.user.toString() !== userId
+    );
+    await groupChat.save();
+
+    res.json({
+      success: true,
+      data: groupChat
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: error.message
+      }
+    });
+  }
+});
+
 // Send a message to the group chat
 router.post('/:id/messages', auth, async (req, res) => {
   try {
