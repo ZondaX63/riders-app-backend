@@ -46,9 +46,10 @@ function startServer() {
       console.log('Connected to MongoDB');
       const server = http.createServer(app);
       initializeSocket(server);
-      server.listen(PORT, () => {
+      server.listen(PORT, '0.0.0.0', () => {
         console.log(`Server running on port ${PORT}`);
       });
+
     })
     .catch(handleMongoError);
 

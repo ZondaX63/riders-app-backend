@@ -15,26 +15,34 @@ const mapPinRoutes = require('./routes/mapPins');
 const notificationRoutes = require('./routes/notifications');
 const app = express();
 
+// Trust proxy for Render deployment
+app.set('trust proxy', 1);
+
+// Routes for newly added features
+const storyRoutes = require('./routes/stories');
+const routeRoutes = require('./routes/routes');
+
+
 // CORS middleware
 app.use(cors({
-  origin: function(origin, callback) {
+  origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     // Allow all localhost origins during development
     if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
       return callback(null, true);
     }
-    
+
     // In production, only allow specific origins
     const allowedOrigins = [
       process.env.FRONTEND_URL
     ].filter(Boolean);
-    
+
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    
+
     callback(new Error('Not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -102,6 +110,20 @@ app.use('/api/chats', chatRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/map-pins', mapPinRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/stories', storyRoutes);
+app.use('/api/routes', routeRoutes);
+
+// Root route
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Riders Social Media API is live!",
+    version: "1.0.0",
+    status: "healthy",
+    documentation: "Please use /api endpoints for data access."
+  });
+});
+
 
 // Test route for error handling
 app.get('/test-error', (req, res, next) => {
