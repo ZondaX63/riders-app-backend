@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const GroupChat = require('../models/GroupChat');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 const mapsService = require('../services/mapsService');
 
 // Create a new group chat
