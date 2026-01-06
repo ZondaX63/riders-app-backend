@@ -369,10 +369,61 @@ const initializeSocket = (server) => {
 		});
 
 		socket.on('shareLocation', ({ groupId, location }) => {
+			// Broadcast to everyone in the group EXCEPT the sender
 			socket.to(groupId).emit('locationShared', {
 				userId: socket.user._id,
 				username: socket.user.username,
 				location
+			});
+		});
+
+		// WebRTC Signaling Events
+		socket.on('voice:join', ({ groupId }) => {
+			socket.join(`voice:${groupId}`);
+			// Notify others in the voice channel
+			socket.to(`voice:${groupId}`).emit('voice:user-joined', {
+				userId: socket.user._id,
+				socketId: socket.id
+			});
+			// Send list of existing users in the room (simplified for mesh)
+			const room = ioInstance.sockets.adapter.rooms.get(`voice:${groupId}`);
+			if (room) {
+				const existingUsers = [];
+				for (const socketId of room) {
+					if (socketId !== socket.id) {
+						existingUsers.push(socketId);
+					}
+				}
+				socket.emit('voice:existing-users', existingUsers);
+			}
+		});
+
+		socket.on('voice:leave', ({ groupId }) => {
+			socket.leave(`voice:${groupId}`);
+			socket.to(`voice:${groupId}`).emit('voice:user-left', {
+				userId: socket.user._id,
+				socketId: socket.id
+			});
+		});
+
+		socket.on('voice:offer', ({ to, offer }) => {
+			ioInstance.to(to).emit('voice:offer', {
+				from: socket.id,
+				offer
+			});
+		});
+
+		socket.on('voice:answer', ({ to, answer }) => {
+			ioInstance.to(to).emit('voice:answer', {
+				from: socket.id,
+				answer
+			});
+		});
+
+		socket.on('voice:candidate', ({ to, candidate }) => {
+			ioInstance.to(to).emit('voice:candidate', {
+				from: socket.id,
+				candidate
 			});
 		});
 

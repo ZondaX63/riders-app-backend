@@ -13,6 +13,7 @@ const chatRoutes = require('./routes/chat');
 const locationRoutes = require('./routes/locations');
 const mapPinRoutes = require('./routes/mapPins');
 const notificationRoutes = require('./routes/notifications');
+const groupChatRoutes = require('./routes/groupChat');
 const app = express();
 
 // Trust proxy for Render deployment
@@ -110,6 +111,7 @@ app.use('/api/chats', chatRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/map-pins', mapPinRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/group-chats', groupChatRoutes);
 app.use('/api/stories', storyRoutes);
 app.use('/api/routes', routeRoutes);
 
