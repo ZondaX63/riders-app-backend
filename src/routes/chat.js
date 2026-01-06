@@ -25,8 +25,8 @@ router.post('/', auth, async (req, res) => {
     let conversation = await Conversation.findOne({
       participants: { $all: [req.user._id, userId] }
     })
-    .populate('participants', 'username fullName profilePicture')
-    .populate('lastMessage');
+      .populate('participants', 'username fullName profilePicture')
+      .populate('lastMessage');
 
     if (!conversation) {
       // Create new conversation
@@ -179,6 +179,18 @@ router.post('/:chatId/messages', auth, async (req, res) => {
       .populate('sender', 'username fullName profilePicture')
       .populate('readBy.user', 'username fullName profilePicture');
 
+    // Emit socket event for real-time updates
+    const io = req.app.get('io');
+    if (io) {
+      conversation.participants.forEach(participantId => {
+        const room = `user:${participantId.toString()}`;
+        io.to(room).emit('message:received', {
+          chatId: conversation._id,
+          message: populatedMessage
+        });
+      });
+    }
+
     res.status(201).json({
       success: true,
       data: { message: populatedMessage }
@@ -242,7 +254,7 @@ router.get('/:chatId/messages', auth, async (req, res) => {
     }
 
     // Mark messages as read if they are not already read by the current user
-    const unreadMessages = messages.filter(message => 
+    const unreadMessages = messages.filter(message =>
       !message.readBy.some(read => read.user._id.equals(req.user._id))
     );
 

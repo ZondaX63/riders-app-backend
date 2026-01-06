@@ -4,6 +4,7 @@ const { body, validationResult } = require('express-validator');
 const { auth } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 const User = require('../models/User');
+const { createNotification } = require('../utils/notificationService');
 const Notification = require('../models/Notification');
 const Post = require('../models/Post');
 const Route = require('../models/Route');
@@ -12,7 +13,7 @@ const Route = require('../models/Route');
 router.get('/search', auth, async (req, res) => {
   try {
     const { q } = req.query;
-    
+
     let users;
     if (!q || q.trim() === '') {
       // If no query, return all users (excluding current user)
@@ -285,6 +286,14 @@ router.post('/:userId/follow', auth, async (req, res) => {
 
     await User.findByIdAndUpdate(req.params.userId, {
       $addToSet: { followers: req.user.id }
+    });
+
+    await createNotification({
+      type: 'follow',
+      user: req.params.userId,
+      fromUser: req.user._id,
+      content: `${req.user.username} seni takip etmeye başladı.`,
+      message: `${req.user.username} seni takip etmeye başladı.`
     });
 
     res.json({

@@ -46,6 +46,7 @@ router.post('/', auth, [
     });
 
     await route.save();
+    await route.populate('user', 'username fullName profilePicture');
 
     res.status(201).json({
       success: true,
@@ -105,11 +106,11 @@ router.get('/user/:userId', auth, async (req, res) => {
         { 'sharedWith.user': req.params.userId }
       ]
     })
-    .sort({ createdAt: -1 })
-    .populate('user', 'username fullName profilePicture')
-    .populate('sharedWith.user', 'username fullName profilePicture')
-    .limit(parseInt(limit))
-    .skip(parseInt(offset));
+      .sort({ createdAt: -1 })
+      .populate('user', 'username fullName profilePicture')
+      .populate('sharedWith.user', 'username fullName profilePicture')
+      .limit(parseInt(limit))
+      .skip(parseInt(offset));
 
     const total = await Route.countDocuments({
       $or: [
@@ -190,9 +191,9 @@ router.get('/:routeId', auth, async (req, res) => {
     }
 
     // Check if user has access to the route
-    if (!route.isPublic && 
-        route.user.toString() !== req.user._id.toString() && 
-        !route.sharedWith.some(share => share.user.toString() === req.user._id.toString())) {
+    if (!route.isPublic &&
+      route.user.toString() !== req.user._id.toString() &&
+      !route.sharedWith.some(share => share.user.toString() === req.user._id.toString())) {
       return res.status(403).json({
         success: false,
         error: {
@@ -397,17 +398,17 @@ function calculateRouteDistance(waypoints) {
     const lon1 = waypoints[i].longitude;
     const lat2 = waypoints[i + 1].latitude;
     const lon2 = waypoints[i + 1].longitude;
-    
+
     // Haversine formula
     const R = 6371; // Earth's radius in kilometers
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * 
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const distance = R * c;
-    
+
     totalDistance += distance;
   }
   return totalDistance;

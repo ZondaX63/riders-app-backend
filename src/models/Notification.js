@@ -8,7 +8,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['follow', 'like', 'comment', 'route_share'],
+    enum: ['follow', 'like', 'comment', 'route_share', 'group_ride'],
     required: true
   },
   fromUser: {
@@ -16,10 +16,9 @@ const notificationSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  content: {
-    type: String,
-    required: true
-  },
+  title: String,
+  message: String,
+  content: String,
   read: {
     type: Boolean,
     default: false
@@ -31,6 +30,10 @@ const notificationSchema = new mongoose.Schema({
   relatedRoute: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Route'
+  },
+  relatedGroupChat: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'GroupChat'
   }
 }, {
   timestamps: true

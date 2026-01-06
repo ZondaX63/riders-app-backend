@@ -5,6 +5,7 @@ const { auth } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 const Post = require('../models/Post');
 const Notification = require('../models/Notification');
+const { createNotification } = require('../utils/notificationService');
 const mongoose = require('mongoose');
 const path = require('path');
 
@@ -347,11 +348,12 @@ router.post('/:id/like', auth, async (req, res) => {
 
     // Create notification for post like
     if (post.user.toString() !== req.user._id.toString()) {
-      await Notification.create({
+      await createNotification({
         type: 'like',
         user: post.user,
         fromUser: req.user._id,
-        content: 'Your post was liked',
+        content: `${req.user.username} postunu beğendi.`,
+        message: `${req.user.username} postunu beğendi.`,
         relatedPost: post._id
       });
     }
@@ -513,11 +515,12 @@ router.post('/:id/comments', auth, async (req, res) => {
 
     // Create notification for comment
     if (post.user.toString() !== req.user._id.toString()) {
-      await Notification.create({
+      await createNotification({
         type: 'comment',
         user: post.user,
         fromUser: req.user._id,
-        content: 'New comment on your post',
+        content: `${req.user.username} postuna yorum yaptı: ${content}`,
+        message: `${req.user.username} postuna yorum yaptı: ${content}`,
         relatedPost: post._id
       });
     }
