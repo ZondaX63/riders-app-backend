@@ -113,16 +113,18 @@ router.post('/:id/members', auth, async (req, res) => {
     }
 
     // Check if user is admin
+    // Check if user is admin OR if it's a public group and user is adding themselves
     const isAdmin = groupChat.members.some(
       member => member.user.toString() === req.user._id.toString() && member.role === 'admin'
     );
+    const isSelfAdd = userId === req.user._id.toString();
 
-    if (!isAdmin) {
+    if (!isAdmin && (!isSelfAdd || groupChat.isPrivate)) {
       return res.status(403).json({
         success: false,
         error: {
           code: 'FORBIDDEN',
-          message: 'Only admins can add members'
+          message: 'Only admins can add members to private groups'
         }
       });
     }
@@ -441,8 +443,12 @@ router.patch('/:id/ride-status', auth, async (req, res) => {
     }
 
     // Check if user is admin or creator
+    // Check if user is admin or creator
     const member = groupChat.members.find(m => m.user.toString() === req.user._id.toString());
-    if (member.role !== 'admin' && groupChat.creator.toString() !== req.user._id.toString()) {
+    const isCostomAdmin = member && member.role === 'admin';
+    const isCreator = groupChat.creator.toString() === req.user._id.toString();
+
+    if (!isCostomAdmin && !isCreator) {
       return res.status(403).json({
         success: false,
         error: {
