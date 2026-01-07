@@ -256,14 +256,21 @@ router.post('/:id/messages', auth, async (req, res) => {
       });
     }
 
+
     // If it's a location message, get the address
     let locationData = null;
     if (type === 'location' && location) {
-      const address = await mapsService.reverseGeocode(location.lat, location.lng);
-      locationData = {
-        ...location,
-        name: address
-      };
+      try {
+        const address = await mapsService.reverseGeocode(location.lat, location.lng);
+        locationData = {
+          ...location,
+          name: address
+        };
+      } catch (error) {
+        console.error('Error reverse geocoding:', error);
+        // Use location without name if geocoding fails
+        locationData = location;
+      }
     }
 
     groupChat.messages.push({
@@ -276,25 +283,39 @@ router.post('/:id/messages', auth, async (req, res) => {
     await groupChat.save();
 
     // Prepare message with sender info for real-time update and response
-    const lastMessage = groupChat.messages[groupChat.messages.length - 1].toObject();
-    lastMessage.sender = {
-      _id: req.user._id,
-      username: req.user.username,
-      fullName: req.user.fullName,
-      profilePicture: req.user.profilePicture
+    const lastMessageDoc = groupChat.messages[groupChat.messages.length - 1];
+    const lastMessage = {
+      _id: lastMessageDoc._id,
+      id: lastMessageDoc._id.toString(),
+      content: lastMessageDoc.content,
+      type: lastMessageDoc.type,
+      location: lastMessageDoc.location,
+      createdAt: lastMessageDoc.createdAt,
+      sender: {
+        _id: req.user._id,
+        id: req.user._id.toString(),
+        username: req.user.username,
+        fullName: req.user.fullName,
+        profilePicture: req.user.profilePicture,
+        email: req.user.email
+      }
     };
 
-    // Emit socket event for real-time updates
-    req.app.get('io').to(req.params.id).emit('newMessage', {
-      groupId: req.params.id,
-      message: lastMessage
-    });
+    // Emit socket event for real-time updates (if socket.io is available)
+    const io = req.app.get('io');
+    if (io) {
+      io.to(req.params.id).emit('newMessage', {
+        groupId: req.params.id,
+        message: lastMessage
+      });
+    }
 
     res.json({
       success: true,
       data: lastMessage
     });
   } catch (error) {
+    console.error('Error sending group message:', error);
     res.status(500).json({
       success: false,
       error: {
