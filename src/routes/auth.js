@@ -7,6 +7,7 @@ const { auth } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { normalizeImagePath } = require('../utils/fileUtils');
 
 // Helper function to generate JWT token
 const generateToken = (userId) => {
@@ -20,7 +21,7 @@ const generateToken = (userId) => {
 // Configure multer for file upload
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = path.join(process.cwd(), 'uploads/profile-pictures');
+    const uploadDir = path.join(__dirname, '..', '..', 'uploads', 'profile-pictures');
     // Create directory if it doesn't exist
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
@@ -350,7 +351,7 @@ router.put('/profile', auth, async (req, res) => {
   try {
     const { fullName, bio, motorcycleInfo } = req.body;
     const user = await User.findById(req.user._id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -437,7 +438,7 @@ router.put('/profile/picture', auth, upload.single('profilePicture'), async (req
     }
 
     // Update user's profile picture
-    user.profilePicture = path.join('uploads', 'profile-pictures', req.file.filename);
+    user.profilePicture = normalizeImagePath(req.file.path);
     await user.save();
 
     res.json({

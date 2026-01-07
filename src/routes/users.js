@@ -8,6 +8,7 @@ const { createNotification } = require('../utils/notificationService');
 const Notification = require('../models/Notification');
 const Post = require('../models/Post');
 const Route = require('../models/Route');
+const { normalizeImagePath } = require('../utils/fileUtils');
 
 // Search users
 router.get('/search', auth, async (req, res) => {
@@ -133,7 +134,7 @@ router.put('/me/profile-picture', auth, upload.single('profilePicture'), async (
 
     const user = await User.findByIdAndUpdate(
       req.user.id,
-      { $set: { profilePicture: req.file.path } },
+      { $set: { profilePicture: normalizeImagePath(req.file.path) } },
       { new: true }
     ).select('-password');
 
@@ -246,7 +247,7 @@ router.post('/:userId/profile-picture', auth, upload.single('profilePicture'), a
 
     const user = await User.findByIdAndUpdate(
       req.params.userId,
-      { $set: { profilePicture: req.file.path } },
+      { $set: { profilePicture: normalizeImagePath(req.file.path) } },
       { new: true }
     ).select('-password');
 

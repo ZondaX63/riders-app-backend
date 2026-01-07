@@ -8,20 +8,8 @@ const Notification = require('../models/Notification');
 const { createNotification } = require('../utils/notificationService');
 const mongoose = require('mongoose');
 const path = require('path');
+const { normalizeImagePath } = require('../utils/fileUtils');
 
-function normalizeImagePath(p) {
-  if (!p) return p;
-  let s = p.replace(/\\/g, '/');
-  const lower = s.toLowerCase();
-  const idx = lower.lastIndexOf('/uploads/');
-  if (idx !== -1) {
-    s = s.substring(idx + 1); // drops leading '/'
-  }
-  if (!s.startsWith('uploads/')) {
-    s = 'uploads/' + s.replace(/^\/+/, '');
-  }
-  return s;
-}
 
 // Create post
 router.post('/', [

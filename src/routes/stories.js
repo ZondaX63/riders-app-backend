@@ -4,6 +4,7 @@ const { auth } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 const Story = require('../models/Story');
 const User = require('../models/User');
+const { normalizeImagePath } = require('../utils/fileUtils');
 
 // Create story
 router.post('/', auth, upload.single('media'), async (req, res) => {
@@ -42,7 +43,7 @@ router.post('/', auth, upload.single('media'), async (req, res) => {
 
     const story = new Story({
       user: req.user._id,
-      mediaUrl: req.file.path,
+      mediaUrl: normalizeImagePath(req.file.path),
       mediaType,
       duration: parseInt(duration)
     });
