@@ -40,8 +40,8 @@ router.get('/', auth, async (req, res) => {
         { isPrivate: false },
         { 'members.user': req.user._id }
       ]
-    }).populate('creator', 'username fullName')
-      .populate('members.user', 'username fullName');
+    }).populate('creator', 'username fullName profilePicture')
+      .populate('members.user', 'username fullName profilePicture');
 
     res.json({
       success: true,
@@ -67,9 +67,9 @@ router.get('/:id', auth, async (req, res) => {
         { isPrivate: false },
         { 'members.user': req.user._id }
       ]
-    }).populate('creator', 'username fullName')
-      .populate('members.user', 'username fullName')
-      .populate('messages.sender', 'username fullName');
+    }).populate('creator', 'username fullName profilePicture')
+      .populate('members.user', 'username fullName profilePicture')
+      .populate('messages.sender', 'username fullName profilePicture');
 
     if (!groupChat) {
       return res.status(404).json({
@@ -275,15 +275,24 @@ router.post('/:id/messages', auth, async (req, res) => {
 
     await groupChat.save();
 
+    // Prepare message with sender info for real-time update and response
+    const lastMessage = groupChat.messages[groupChat.messages.length - 1].toObject();
+    lastMessage.sender = {
+      _id: req.user._id,
+      username: req.user.username,
+      fullName: req.user.fullName,
+      profilePicture: req.user.profilePicture
+    };
+
     // Emit socket event for real-time updates
     req.app.get('io').to(req.params.id).emit('newMessage', {
       groupId: req.params.id,
-      message: groupChat.messages[groupChat.messages.length - 1]
+      message: lastMessage
     });
 
     res.json({
       success: true,
-      data: groupChat.messages[groupChat.messages.length - 1]
+      data: lastMessage
     });
   } catch (error) {
     res.status(500).json({
@@ -352,7 +361,17 @@ router.get('/:id/messages', auth, async (req, res) => {
           type: '$messages.type',
           location: '$messages.location',
           createdAt: '$messages.createdAt',
-          sender: { $arrayElemAt: ['$sender', 0] }
+          sender: {
+            $let: {
+              vars: { senderDoc: { $arrayElemAt: ['$sender', 0] } },
+              in: {
+                _id: '$$senderDoc._id',
+                username: '$$senderDoc.username',
+                fullName: '$$senderDoc.fullName',
+                profilePicture: '$$senderDoc.profilePicture'
+              }
+            }
+          }
         }
       }
     ]);
