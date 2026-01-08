@@ -142,6 +142,104 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// Get posts for a specific user
+router.get('/users/:userId/posts', auth, async (req, res) => {
+  try {
+    const { limit = 20, offset = 0 } = req.query;
+    const posts = await Post.find({ user: req.params.userId })
+      .sort({ createdAt: -1 })
+      .skip(parseInt(offset))
+      .limit(parseInt(limit))
+      .populate('user', 'username fullName profilePicture')
+      .populate({
+        path: 'comments.user',
+        select: 'username fullName profilePicture'
+      });
+    const total = await Post.countDocuments({ user: req.params.userId });
+    res.json({
+      success: true,
+      data: { posts, total }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Error fetching user posts'
+      }
+    });
+  }
+});
+
+// Get explore posts (users not followed by current user)
+router.get('/explore', auth, async (req, res) => {
+  try {
+    const { limit = 20, offset = 0 } = req.query;
+
+    // Get list of users to exclude (self + following)
+    const excludeUsers = [...req.user.following, req.user._id];
+
+    // Find posts from other users, sorted by popularity (likes count)
+    // Note: sorting by array length in MongoDB can be complex without aggregation, 
+    // but for now we can sort by createdAt or text score. 
+    // A better approach for "popularity" is using an aggregation pipeline.
+
+    /* Simple aggregation for popularity */
+    const posts = await Post.aggregate([
+      {
+        $match: {
+          user: { $nin: excludeUsers }
+        }
+      },
+      {
+        $addFields: {
+          likesCount: { $size: "$likes" },
+          commentsCount: { $size: "$comments" }
+        }
+      },
+      {
+        $sort: {
+          likesCount: -1,
+          createdAt: -1
+        }
+      },
+      { $skip: parseInt(offset) },
+      { $limit: parseInt(limit) }
+    ]);
+
+    // Populations (Aggregation returns plain objects, so we need to populate manually or use $lookup)
+    // Using $lookup for user details is more efficient here than subsequent queries
+    const populatedPosts = await Post.populate(posts, [
+      { path: 'user', select: 'username fullName profilePicture' },
+      { path: 'comments.user', select: 'username fullName profilePicture' }
+    ]);
+
+    // Normalize images
+    populatedPosts.forEach(p => {
+      p.images = (p.images || []).map(normalizeImagePath);
+      p.id = p._id; // Ensure ID compatibility
+    });
+
+    // Count total documents for pagination info (optional, heavy query)
+    // const total = await Post.countDocuments({ user: { $nin: excludeUsers } }); 
+
+    res.json({
+      success: true,
+      data: { posts: populatedPosts }
+    });
+  } catch (error) {
+    console.error('Get explore posts error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Error fetching explore posts'
+      }
+    });
+  }
+});
+
+
 // Get post by id
 router.get('/:id', auth, async (req, res) => {
   try {
@@ -608,102 +706,6 @@ router.delete('/:id/comments/:commentId', auth, async (req, res) => {
   }
 });
 
-// Get posts for a specific user
-router.get('/users/:userId/posts', auth, async (req, res) => {
-  try {
-    const { limit = 20, offset = 0 } = req.query;
-    const posts = await Post.find({ user: req.params.userId })
-      .sort({ createdAt: -1 })
-      .skip(parseInt(offset))
-      .limit(parseInt(limit))
-      .populate('user', 'username fullName profilePicture')
-      .populate({
-        path: 'comments.user',
-        select: 'username fullName profilePicture'
-      });
-    const total = await Post.countDocuments({ user: req.params.userId });
-    res.json({
-      success: true,
-      data: { posts, total }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Error fetching user posts'
-      }
-    });
-  }
-});
 
-
-// Get explore posts (users not followed by current user)
-router.get('/explore', auth, async (req, res) => {
-  try {
-    const { limit = 20, offset = 0 } = req.query;
-
-    // Get list of users to exclude (self + following)
-    const excludeUsers = [...req.user.following, req.user._id];
-
-    // Find posts from other users, sorted by popularity (likes count)
-    // Note: sorting by array length in MongoDB can be complex without aggregation, 
-    // but for now we can sort by createdAt or text score. 
-    // A better approach for "popularity" is using an aggregation pipeline.
-
-    /* Simple aggregation for popularity */
-    const posts = await Post.aggregate([
-      {
-        $match: {
-          user: { $nin: excludeUsers }
-        }
-      },
-      {
-        $addFields: {
-          likesCount: { $size: "$likes" },
-          commentsCount: { $size: "$comments" }
-        }
-      },
-      {
-        $sort: {
-          likesCount: -1,
-          createdAt: -1
-        }
-      },
-      { $skip: parseInt(offset) },
-      { $limit: parseInt(limit) }
-    ]);
-
-    // Populations (Aggregation returns plain objects, so we need to populate manually or use $lookup)
-    // Using $lookup for user details is more efficient here than subsequent queries
-    const populatedPosts = await Post.populate(posts, [
-      { path: 'user', select: 'username fullName profilePicture' },
-      { path: 'comments.user', select: 'username fullName profilePicture' }
-    ]);
-
-    // Normalize images
-    populatedPosts.forEach(p => {
-      p.images = (p.images || []).map(normalizeImagePath);
-      p.id = p._id; // Ensure ID compatibility
-    });
-
-    // Count total documents for pagination info (optional, heavy query)
-    // const total = await Post.countDocuments({ user: { $nin: excludeUsers } }); 
-
-    res.json({
-      success: true,
-      data: { posts: populatedPosts }
-    });
-  } catch (error) {
-    console.error('Get explore posts error:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Error fetching explore posts'
-      }
-    });
-  }
-});
 
 module.exports = router;
