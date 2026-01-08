@@ -166,6 +166,53 @@ router.put('/me/profile-picture', auth, upload.single('profilePicture'), async (
   }
 });
 
+// Upload motorcycle picture
+router.put('/me/motorcycle-picture', auth, upload.single('motorcyclePicture'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'NO_FILE',
+          message: 'No file uploaded'
+        }
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { "motorcycleInfo.imageUrl": normalizeImagePath(req.file.path) } },
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found'
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        user
+      }
+    });
+  } catch (error) {
+    console.error('Error uploading motorcycle picture:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Internal server error'
+      }
+    });
+  }
+});
+
 // Get user profile
 router.get('/:userId', auth, async (req, res) => {
   try {
